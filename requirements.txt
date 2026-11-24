@@ -1,0 +1,2 @@
+whisperx>=3.3.0
+pyinstaller>=6.10.0
