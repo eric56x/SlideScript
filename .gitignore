@@ -1,0 +1,10 @@
+slidescript_config.json
+hf_cache/
+runtime/
+ffmpeg/
+releases/
+*.exe
+*.bak
+*.log
+*.pem
+__pycache__/
