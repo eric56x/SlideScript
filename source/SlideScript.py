@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 __app_name__ = "SlideScript"
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
-import os, re, sys, time, base64, urllib.request, urllib.error, subprocess
+import os, re, sys, time, base64, urllib.request, urllib.error, subprocess, multiprocessing
 from datetime import datetime
 from pathlib import Path
+
+if __name__ == "__main__":
+    multiprocessing.freeze_support()
 
 if getattr(sys, "frozen", False):
     SCRIPT_DIR = Path(sys.executable).resolve().parent
@@ -27,7 +30,6 @@ if not _WIN_CA_PEM.exists():
 if _WIN_CA_PEM.exists():
     os.environ["REQUESTS_CA_BUNDLE"] = str(_WIN_CA_PEM)
     os.environ["SSL_CERT_FILE"] = str(_WIN_CA_PEM)
-
 
 import io
 if sys.stdout is None:
@@ -53,15 +55,27 @@ if os.name == "nt":
 RUNTIME_DIR = SCRIPT_DIR / "runtime"
 FFMPEG_DIR = SCRIPT_DIR / "ffmpeg"
 HF_CACHE_DIR = SCRIPT_DIR / "hf_cache"
+HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 if FFMPEG_DIR.exists():
     os.environ["PATH"] = str(FFMPEG_DIR) + os.pathsep + os.environ.get("PATH", "")
-if HF_CACHE_DIR.exists():
-    os.environ["HF_HUB_CACHE"] = str(HF_CACHE_DIR)
-    os.environ["TORCH_HOME"] = str(HF_CACHE_DIR / "torch")
+os.environ["HF_HOME"] = str(HF_CACHE_DIR)
+os.environ["HF_HUB_CACHE"] = str(HF_CACHE_DIR)
+os.environ["HF_HUB_DISABLE_SYMLINKS"] = "1"
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+import shutil as _sh_sym
+if os.name == "nt":
+    def _win_safe_symlink(src, dst, target_is_directory=False, *, dir_fd=None):
+        src_p = Path(dst).parent / src if not os.path.isabs(src) else Path(src)
+        if src_p.is_dir():
+            _sh_sym.copytree(src_p, dst, dirs_exist_ok=True)
+        elif src_p.exists():
+            _sh_sym.copy2(src_p, dst)
+    os.symlink = _win_safe_symlink
+os.environ["TORCH_HOME"] = str(HF_CACHE_DIR / "torch")
 if (RUNTIME_DIR / "Lib" / "site-packages").exists():
     sys.path.insert(0, str(RUNTIME_DIR / "Lib" / "site-packages"))
-
+    
 try:
     from docx import Document
     from docx.shared import RGBColor, Pt, Inches
@@ -114,8 +128,8 @@ WHISPER_MODEL_CATALOG = [
     {"id": "medium.en",   "category": "whisper",  "label_fr": "medium.en (~1,46 Go)",                                                                      "label_en": "medium.en (~1.46 GB)",                                                                    "repos": ["Systran/faster-whisper-medium.en"],                                                 "gated": False, "available": True},
     {"id": "large-v3",    "category": "whisper",  "label_fr": "large (~2,90 Go — large-v3)",                                                               "label_en": "large (~2.90 GB — large-v3)",                                                             "repos": ["Systran/faster-whisper-large-v3"],                                                  "gated": False, "available": True},
     {"id": "large.en",    "category": "whisper",  "label_fr": "large.en (non publié par OpenAI)",                                                          "label_en": "large.en (not released by OpenAI)",                                                       "repos": [],                                                                                   "gated": False, "available": False},
-    {"id": "pyannote",    "category": "speaker",  "label_fr": "pyannote/speaker-diarization-community-1 (~35 Mo — requis pour l'identification des locuteurs)", "label_en": "pyannote/speaker-diarization-community-1 (~35 MB — required for speaker identification)", "repos": ["pyannote/speaker-diarization-community-1", "pyannote/segmentation-3.0"],            "gated": True,  "available": True},
-    {"id": "wav2vec2-fr", "category": "align",    "label_fr": "wav2vec2-large-xlsr-53-french (~1,26 Go — recommandé pour l'alignement audio français)",       "label_en": "wav2vec2-large-xlsr-53-french (~1.26 GB — recommended for French audio alignment)",       "repos": ["jonatasgrosman/wav2vec2-large-xlsr-53-french"],                                     "gated": False, "available": True},
+    {"id": "pyannote",    "category": "speaker",  "label_fr": "Identification des locuteurs (pyannote)", "label_en": "Speaker identification (pyannote)", "repos": ["pyannote/speaker-diarization-community-1", "pyannote/segmentation-3.0"],            "gated": True,  "available": True},
+    {"id": "wav2vec2-fr", "category": "align",    "label_fr": "Alignement audio français — rapide",       "label_en": "French audio alignment — fast",       "repos": ["bofenghuang/asr-wav2vec2-ctc-french"],                                     "gated": False, "available": True},
 ]
 
 SPEAKER_COLORS = [
@@ -135,8 +149,8 @@ TQDM_DL_RE = re.compile(
 
 I18N = {
     "fr": {
-        "win_title": "SlideScript v1.0.0 — Transcription, Diarisation & Extraction de Slides",
-        "ui_lang_label": "Interface :", "app_ver": "v1.0.0",
+        "win_title": "SlideScript v1.1.0 — Transcription, Diarisation & Extraction de Slides",
+        "ui_lang_label": "Interface :", "app_ver": "v1.1.0",
         "btn_models_mgr": "⚙ Modèles installés & Mises à jour",
         "dlg_mod_title": "Modèles installés & Mises à jour (cache local)",
         "dlg_mod_desc": "Cochez les modèles à installer localement ou décochez ceux à supprimer pour libérer de l'espace disque :",
@@ -227,8 +241,8 @@ I18N = {
         "dlg_quit_m": "Une transcription est actuellement en cours.\nVoulez-vous vraiment l'arrêter immédiatement et quitter ?"
     },
     "en": {
-        "win_title": "SlideScript v1.0.0 — Transcription, Speaker Diarization & Slide Extraction",
-        "ui_lang_label": "Interface:", "app_ver": "v1.0.0",
+        "win_title": "SlideScript v1.1.0 — Transcription, Speaker Diarization & Slide Extraction",
+        "ui_lang_label": "Interface:", "app_ver": "v1.1.0",
         "btn_models_mgr": "⚙ Installed Models & Updates",
         "dlg_mod_title": "Installed Models & Cache Update",
         "dlg_mod_desc": "Check models to install locally or uncheck models to uninstall and free disk space:",
@@ -1185,11 +1199,63 @@ def is_whisper_model_installed(model_id: str) -> bool:
 def get_available_base_models() -> list:
     return ["tiny", "small", "medium", "large-v3"]
 
+
+def fetch_remote_model_meta(repo_id: str, timeout: float = 6.0):
+    """Interroge l'API Hugging Face pour récupérer (sha, taille_totale_octets) des fichiers utiles."""
+    if not repo_id:
+        return None, 0
+    try:
+        import json, urllib.request
+        url = f"https://huggingface.co/api/models/{repo_id}"
+        req = urllib.request.Request(url, headers={"User-Agent": "SlideScript/1.1.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+        sha = data.get("sha")
+        ignore_ext = (".h5", ".msgpack", ".ot", ".tflite")
+        ignore_prefix = ("coreml/", "openvino/")
+        total_bytes = 0
+        for sib in data.get("siblings", []):
+            rname = sib.get("rfilename", "")
+            if rname.endswith(ignore_ext) or rname.startswith(ignore_prefix):
+                continue
+            sz = sib.get("size")
+            if isinstance(sz, int) and sz > 0:
+                total_bytes += sz
+            elif isinstance(sib.get("lfs"), dict) and isinstance(sib["lfs"].get("size"), int):
+                total_bytes += sib["lfs"]["size"]
+        return sha, total_bytes
+    except Exception:
+        return None, 0
+
+def get_local_model_size_bytes(repo_id: str) -> int:
+    if not repo_id:
+        return 0
+    folder_name = f"models--{repo_id.replace('/', '--')}"
+    candidates = [HF_CACHE_DIR / folder_name, HF_CACHE_DIR / "hub" / folder_name]
+    for d in candidates:
+        if d.exists():
+            td = (d / "blobs") if (d / "blobs").exists() else d
+            total = 0
+            for f in td.rglob("*"):
+                if f.is_file() and not f.name.endswith(".lock"):
+                    try:
+                        total += f.stat().st_size
+                    except OSError:
+                        pass
+            if total > 0:
+                return total
+    return 0
+
+def format_size_human(b: int, lang: str = "fr") -> str:
+    if b <= 0: return ""
+    mb = b / (1024 * 1024)
+    return (f"{mb/1024:.2f}".replace(".", "," if lang=="fr" else ".") + (" Go" if lang=="fr" else " GB")) if mb >= 1024 else f"{mb:.0f} " + ("Mo" if lang=="fr" else "MB")
+
 class ModelManagerDialog(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.parent_app = parent
-        self.title(parent.tr("dlg_mod_title") + "  [SlideScript v1.0.0]")
+        self.title(parent.tr("dlg_mod_title") + "  [SlideScript v1.1.0]")
         write_model_debug("=== Ouverture ModelManagerDialog v4.6-DEBUG ===")
         self.geometry("900x660")
         self.minsize(850, 560)
@@ -1228,19 +1294,18 @@ class ModelManagerDialog(tk.Toplevel):
         self.lbl_mgr_desc = ttk.Label(frame, text=desc_txt, wraplength=790, justify=tk.LEFT, font=("Segoe UI", 9, "bold"))
         self.lbl_mgr_desc.pack(anchor=tk.W, pady=(0, 8))
 
-        whisper_frame = ttk.LabelFrame(frame, text="Whisper (CTranslate2 / faster-whisper)", padding=8)
+        whisper_frame = ttk.LabelFrame(frame, text=("Modèles de transcription (Whisper)" if is_fr else "Transcription Models (Whisper)"), padding=8)
         whisper_frame.pack(fill=tk.X, pady=(0, 8))
-
-        extra_title = "Identification des locuteurs & Alignement" if is_fr else "Speaker Identification & Alignment"
-        extra_frame = ttk.LabelFrame(frame, text=extra_title, padding=8)
-        extra_frame.pack(fill=tk.X, pady=(0, 8))
-
+        align_frame = ttk.LabelFrame(frame, text=("Modèles d\'alignement forcé (optionnel — améliorer les horodatages)" if is_fr else "Forced Alignment Models (optional — improve timestamps)"), padding=8)
+        align_frame.pack(fill=tk.X, pady=(0, 8))
+        diar_frame = ttk.LabelFrame(frame, text=("Modèles d\'identification des locuteurs" if is_fr else "Speaker Identification Models"), padding=8)
+        diar_frame.pack(fill=tk.X, pady=(0, 8))
         lbl_key = "label_fr" if is_fr else "label_en"
 
         for item in WHISPER_MODEL_CATALOG:
             mid = item["id"]
             installed = is_whisper_model_installed(mid)
-            target_box = whisper_frame if item.get("category") == "whisper" else extra_frame
+            target_box = whisper_frame if item.get("category") == "whisper" else (align_frame if mid == "wav2vec2-fr" else diar_frame)
 
             row = ttk.Frame(target_box)
             row.pack(fill=tk.X, pady=2)
@@ -1369,6 +1434,8 @@ class ModelManagerDialog(tk.Toplevel):
         )
         self.btn_close.pack(side=tk.RIGHT)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self._apply_dynamic_labels()
+        self._start_remote_check()
 
     def _open_debug_log(self):
         lf = SCRIPT_DIR / "debug_models.log"
@@ -1421,23 +1488,27 @@ class ModelManagerDialog(tk.Toplevel):
         disable_actions = busy_mid or locked_by_run
 
         w["ind_lbl"].config(text=("✔" if installed else "○"), fg=("#15803D" if installed else "#9CA3AF"))
-        w["name_lbl"].config(font=("Segoe UI", 9, "bold" if installed else "normal"))
-
-        btn_act = w["btn_act"]
-        btn_uninst = w["btn_uninst"]
+        lbl_key = "label_fr" if is_fr else "label_en"
+        raw_lbl = item[lbl_key]
+        base_name = re.sub(r'\s*\(~?[^\)]*(?:Mo|Go|MB|GB)[^\)]*\)', '', raw_lbl).strip()
+        repo_id = item.get("repo") or item.get("repo_id") or item.get("hf_repo") or item.get("model_id") or ("bofenghuang/asr-wav2vec2-ctc-french" if mid == "wav2vec2-fr" else ("pyannote/speaker-diarization-community-1" if "pyannote" in mid or "diar" in mid else ""))
+        fb_size = (item.get("size_fr") if is_fr else item.get("size_en")) or (re.search(r'~?[0-9.,]+\s*(?:Mo|Go|MB|GB)', raw_lbl).group(0) if re.search(r'~?[0-9.,]+\s*(?:Mo|Go|MB|GB)', raw_lbl) else ("~380 Mo" if (mid == "wav2vec2-fr" and is_fr) else ("~380 MB" if mid == "wav2vec2-fr" else ("~35 Mo" if is_fr else "~35 MB"))))
+        fb_clean = fb_size.lstrip("~").strip()
+        has_upd = mid in getattr(self, "updates_available", set())
+        rem_bytes = getattr(self, "remote_sizes_bytes", {}).get(mid, 0)
+        rem_str = format_size_human(rem_bytes, "fr" if is_fr else "en") if rem_bytes > 0 else fb_clean
+        if installed:
+            loc_str = format_size_human(get_local_model_size_bytes(repo_id), "fr" if is_fr else "en") or fb_clean
+            sp = f" ({loc_str})" if loc_str else ""
+            display_lbl = f"{base_name}{sp}" + ((f" — Version disponible en ligne (~{rem_str})" if is_fr else f" — Online update available (~{rem_str})") if has_upd else "")
+        else:
+            display_lbl = f"{base_name} (~{rem_str})" if rem_str else base_name
+        w["name_lbl"].config(text=display_lbl, font=("Segoe UI", 9, "bold" if installed else "normal"))
+        btn_act, btn_uninst = w["btn_act"], w["btn_uninst"]
         if btn_act:
             if installed:
-                has_upd = mid in getattr(self, "updates_available", set())
-                btn_act.config(
-                    text=(("🔄 Mise à jour dispo" if has_upd else "🔄 Mettre à jour") if is_fr else ("🔄 Update available" if has_upd else "🔄 Update")),
-                    bg=(("#93C5FD" if locked_by_run else THEME_BLUE) if has_upd else ("#E5E7EB" if locked_by_run else THEME_BTN_SEC_BG)),
-                    fg=("#FFFFFF" if has_upd else ("#9CA3AF" if locked_by_run else "#111827")),
-                    activebackground=(THEME_BLUE_HOVER if has_upd else THEME_BTN_SEC_ACTIVE),
-                    activeforeground=("#FFFFFF" if has_upd else "#111827"),
-                    disabledforeground=("#FFFFFF" if has_upd else "#9CA3AF"),
-                    cursor=("arrow" if disable_actions else "hand2"),
-                    state=(tk.DISABLED if disable_actions else tk.NORMAL)
-                )
+                btn_dis = disable_actions or (not has_upd)
+                btn_act.config(text=("🔄 Mettre à jour" if is_fr else "🔄 Update"), bg=(("#93C5FD" if locked_by_run else THEME_BLUE) if has_upd else "#E5E7EB"), fg=("#FFFFFF" if has_upd else "#9CA3AF"), activebackground=(THEME_BLUE_HOVER if has_upd else "#E5E7EB"), activeforeground=("#FFFFFF" if has_upd else "#9CA3AF"), disabledforeground=("#FFFFFF" if (has_upd and locked_by_run) else "#9CA3AF"), cursor=("arrow" if btn_dis else "hand2"), state=(tk.DISABLED if btn_dis else tk.NORMAL))
             else:
                 btn_act.config(
                     text=("⬇ Installer" if is_fr else "⬇ Install"),
@@ -1639,6 +1710,8 @@ class ModelManagerDialog(tk.Toplevel):
             py_exe = runtime_py if runtime_py.exists() else (venv_py if venv_py.exists() else Path(sys.executable))
             env = os.environ.copy()
             env["HF_HUB_CACHE"] = str(cache_dir)
+            env["HF_HUB_DISABLE_SYMLINKS"] = "1"
+            env["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
             env["HF_HUB_OFFLINE"] = "0"
             env["TRANSFORMERS_OFFLINE"] = "0"
             env["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
@@ -1682,7 +1755,7 @@ class ModelManagerDialog(tk.Toplevel):
                 "os.environ['HF_HUB_OFFLINE'] = '0'; "
                 "os.environ['TRANSFORMERS_OFFLINE'] = '0'; "
                 "os.environ['HF_HUB_DISABLE_PROGRESS_BARS'] = '1'; "
-                "from huggingface_hub import snapshot_download; "
+                "import shutil; os.symlink = lambda s, d, *a, **k: shutil.copy2(os.path.join(os.path.dirname(d), s) if not os.path.isabs(s) else s, d); from huggingface_hub import snapshot_download; "
                 "tok = os.environ.get('HF_TOKEN') or None; "
                 "[snapshot_download(repo_id=r, cache_dir=sys.argv[1], token=tok, local_files_only=False) for r in sys.argv[2:]]"
             )
@@ -1981,6 +2054,84 @@ class ModelManagerDialog(tk.Toplevel):
         else:
             self.destroy()
 
+    def _start_remote_check(self):
+        import threading
+        self._remote_meta = {}
+        def _worker():
+            items = [
+                ("tiny", "Systran/faster-whisper-tiny"),
+                ("tiny.en", "Systran/faster-whisper-tiny.en"),
+                ("small", "Systran/faster-whisper-small"),
+                ("small.en", "Systran/faster-whisper-small.en"),
+                ("medium", "Systran/faster-whisper-medium"),
+                ("medium.en", "Systran/faster-whisper-medium.en"),
+                ("large-v3", "Systran/faster-whisper-large-v3"),
+                ("pyannote", "pyannote/speaker-diarization-community-1"),
+                ("wav2vec2-fr", "bofenghuang/asr-wav2vec2-ctc-french"),
+            ]
+            for key, repo in items:
+                sha, r_bytes = fetch_remote_model_meta(repo)
+                local_sha = None
+                ref_file = HF_CACHE_DIR / f"models--{repo.replace('/', '--')}" / "refs" / "main"
+                if ref_file.exists():
+                    try:
+                        local_sha = ref_file.read_text(encoding="utf-8").strip()
+                    except Exception:
+                        pass
+                has_update = bool(sha and local_sha and sha != local_sha)
+                self._remote_meta[key] = (has_update, r_bytes)
+            try:
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(0, self._apply_dynamic_labels)
+            except Exception:
+                pass
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _apply_dynamic_labels(self):
+        is_fr = (getattr(self, "lang", "fr") == "fr")
+        repo_map = {
+            "tiny": ("tiny", "Systran/faster-whisper-tiny", "75 Mo"),
+            "tiny.en": ("tiny.en", "Systran/faster-whisper-tiny.en", "75 Mo"),
+            "small": ("small", "Systran/faster-whisper-small", "464 Mo"),
+            "small.en": ("small.en", "Systran/faster-whisper-small.en", "464 Mo"),
+            "medium": ("medium", "Systran/faster-whisper-medium", "1,46 Go"),
+            "medium.en": ("medium.en", "Systran/faster-whisper-medium.en", "1,46 Go"),
+            "large-v3": ("large (large-v3)", "Systran/faster-whisper-large-v3", "2,90 Go"),
+            "pyannote": ("Identification des locuteurs (pyannote)" if is_fr else "Speaker identification (pyannote)", "pyannote/speaker-diarization-community-1", "35 Mo"),
+            "wav2vec2-fr": ("Alignement audio français — rapide" if is_fr else "French audio alignment — fast", "bofenghuang/asr-wav2vec2-ctc-french", "380 Mo"),
+        }
+        rows_dict = getattr(self, "model_rows", None) or getattr(self, "_rows", None) or {}
+        for key, (base_lbl, repo, fb_sz) in repo_map.items():
+            row = rows_dict.get(key)
+            if not row:
+                continue
+            lbl_w = row.get("label") if isinstance(row, dict) else getattr(row, "label", None)
+            btn_w = row.get("install_btn") or row.get("action_btn") if isinstance(row, dict) else getattr(row, "action_btn", None)
+            installed = is_hf_model_cached(repo)
+            loc_bytes = get_local_model_size_bytes(repo) if installed else 0
+            loc_str = format_size_human(loc_bytes, "fr" if is_fr else "en") or fb_sz
+            has_upd, rem_bytes = getattr(self, "_remote_meta", {}).get(key, (False, 0))
+            rem_str = format_size_human(rem_bytes, "fr" if is_fr else "en") or fb_sz
+
+            if lbl_w is not None:
+                if installed:
+                    if has_upd:
+                        lbl_w.setText(f"{base_lbl} ({loc_str}) — Version disponible en ligne (~{rem_str})" if is_fr else f"{base_lbl} ({loc_str}) — Online update available (~{rem_str})")
+                    else:
+                        lbl_w.setText(f"{base_lbl} ({loc_str})")
+                else:
+                    lbl_w.setText(f"{base_lbl} (~{rem_str})")
+
+            if btn_w is not None and installed:
+                btn_w.setText("Mettre à jour" if is_fr else "Update")
+                if has_upd:
+                    btn_w.setEnabled(True)
+                    btn_w.setStyleSheet("background-color: #0078D4; color: white; font-weight: bold;")
+                else:
+                    btn_w.setEnabled(False)
+                    btn_w.setStyleSheet("")
+
+
 class HFTokenDialog(tk.Toplevel):
     def __init__(self, parent, current_token: str = ""):
         super().__init__(parent)
@@ -2171,50 +2322,22 @@ class SlideScriptApp(tk.Tk):
         self.after(200, self.startup_checks)
 
     def _apply_window_icon(self, win):
-        ico = get_app_icon_path()
-        if ico:
-            try:
-                win.iconbitmap(default=ico)
-            except Exception:
-                pass
-            if PIL_AVAILABLE:
-                try:
-                    with Image.open(ico) as im:
-                        rgba = im.convert("RGBA")
-                        p64 = ImageTk.PhotoImage(rgba.resize((64, 64), Image.LANCZOS), master=win)
-                        p32 = ImageTk.PhotoImage(rgba.resize((32, 32), Image.LANCZOS), master=win)
-                        win.iconphoto(True, p64, p32)
-                        win._app_icon_refs = (p64, p32)
-                except Exception:
-                    pass
+        try:
+            ico_candidates = [
+                Path(__file__).resolve().parent / "SlideScript.ico",
+                SCRIPT_DIR / "SlideScript.ico",
+                SCRIPT_DIR / "source" / "SlideScript.ico",
+                Path(sys.executable).resolve().parent / "SlideScript.ico",
+            ]
+            for ico in ico_candidates:
+                if ico.exists():
+                    win.iconbitmap(default=str(ico))
+                    win.iconbitmap(str(ico))
+                    return
+        except Exception:
+            pass
 
-        if os.name == "nt":
-            try:
-                from ctypes import wintypes
-                user32 = ctypes.windll.user32
-                shell32 = ctypes.windll.shell32
-                user32.GetParent.argtypes = [wintypes.HWND]
-                user32.GetParent.restype = wintypes.HWND
-                user32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
-                user32.SendMessageW.restype = ctypes.c_ssize_t
-                shell32.ExtractIconExW.argtypes = [wintypes.LPCWSTR, ctypes.c_int, ctypes.POINTER(wintypes.HICON), ctypes.POINTER(wintypes.HICON), wintypes.UINT]
-                shell32.ExtractIconExW.restype = wintypes.UINT
-
-                win.update_idletasks()
-                hwnd = user32.GetParent(win.winfo_id()) or win.winfo_id()
-                src_target = sys.executable if getattr(sys, "frozen", False) else ico
-                if src_target and os.path.exists(src_target):
-                    large_ico = wintypes.HICON()
-                    small_ico = wintypes.HICON()
-                    cnt = shell32.ExtractIconExW(src_target, 0, ctypes.byref(large_ico), ctypes.byref(small_ico), 1)
-                    if cnt > 0:
-                        if small_ico.value:
-                            user32.SendMessageW(hwnd, 0x0080, 0, small_ico.value)
-                        if large_ico.value:
-                            user32.SendMessageW(hwnd, 0x0080, 1, large_ico.value)
-            except Exception:
-                pass
-
+    
     def tr(self, key: str, **kwargs) -> str:
         text = I18N[self.ui_lang].get(key, I18N["fr"].get(key, key))
         return text.format(**kwargs) if kwargs else text
@@ -2308,7 +2431,7 @@ class SlideScriptApp(tk.Tk):
             "out_docx_slides": False,
             "out_pptx": False,
             "langue": "en",
-            "modele": "small",
+            "modele": "tiny",
             "sous_dossiers": False,
             "offline": True,
             "diarize": True,
@@ -2488,7 +2611,7 @@ class SlideScriptApp(tk.Tk):
         self.lbl_model = ttk.Label(opt_row1, width=15, anchor=tk.W)
         self.lbl_model.pack(side=tk.LEFT)
         avail_models = get_available_base_models()
-        saved_m = self.config_data.get("modele", "small")
+        saved_m = self.config_data.get("modele", "tiny")
         if saved_m.endswith(".en"):
             saved_m = saved_m[:-3]
         if saved_m not in avail_models:
@@ -3576,7 +3699,7 @@ class SlideScriptApp(tk.Tk):
             if self.var_diarize.get() and not both_cached:
                 missing_models.append("pyannote/speaker-diarization-community-1 (requis pour l'identification des locuteurs)")
             if selected_lang == "fr" and not fr_align_cached:
-                missing_models.append("jonatasgrosman/wav2vec2-large-xlsr-53-french (recommandé pour l'alignement audio français)")
+                missing_models.append("bofenghuang/asr-wav2vec2-ctc-french (recommandé pour l'alignement audio français)")
             blocking_issues.append((
                 "Installation ou mise à jour des modèles requise",
                 "Cache local hors-ligne (.\\hf_cache\\)",
