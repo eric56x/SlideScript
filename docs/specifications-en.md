@@ -1,7 +1,7 @@
 # USER MANUAL, TECHNICAL SPECIFICATION & REFERENCE SOURCE CODE
 
-- **Current Version** : `1.0.0`
-- **Last Updated** : `2026-11-23`
+- **Current Version** : `1.1.0`
+- **Last Updated** : `2026-11-24`
 - **Active Inference Engine** : `whisperx`
 - **Supported Formats** : `.mp4, .mkv, .mov, .avi, .mp3, .wav, .m4a, .flac, .ogg`
 - **Model Catalog** : `tiny, tiny.en, small, small.en, medium, medium.en, large-v3, large.en, pyannote, wav2vec2-fr`

@@ -1,7 +1,7 @@
 # 1MANUEL D'UTILISATION, SPÉCIFICATION TECHNIQUE & CODE SOURCE DE RÉFÉRENCE
 
-- **Version courante** : `1.0.0`
-- **Date de mise à jour** : `2026-11-23`
+- **Version courante** : `1.1.0`
+- **Date de mise à jour** : `2026-11-24`
 - **Noyau d'inférence actif** : `whisperx`
 - **Formats supportés** : `.mp4, .mkv, .mov, .avi, .mp3, .wav, .m4a, .flac, .ogg`
 - **Catalogue de modèles** : `tiny, tiny.en, small, small.en, medium, medium.en, large-v3, large.en, pyannote, wav2vec2-fr`

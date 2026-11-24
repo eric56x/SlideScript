@@ -19,3 +19,6 @@ This blueprint defines the architectural, security, UI/UX, build, and release st
 ## 3. Out-of-Tree Build & Release Pipeline (`source/build.ps1`)
 - **Static Syntax Gate**: Runs `py_compile` before invoking PyInstaller.
 - **Out-of-Tree Compilation**: Builds inside `C:\Temp\Build_SlideScript_v<Version>\` to prevent file-locking issues on synced drives and keep the working directory clean without needing a `backups/` folder.
+
+## Windows Executable Metadata (VSVersionInfo)
+- Always embed native Windows version resources (FileVersion, ProductVersion, ProductName, FileDescription) into SlideScript.exe via PyInstaller --version-file, derived dynamically from __version__ in source/SlideScript.py.

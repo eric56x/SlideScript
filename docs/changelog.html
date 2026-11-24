@@ -1,4 +1,37 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>SlideScript v1.0.0 - Specifications</title><style>body{font-family:"Segoe UI",system-ui,sans-serif;background:#f4f6f9;color:#1f2937;margin:0;padding:32px 16px;line-height:1.6}.container{max-width:960px;margin:0 auto;background:#fff;padding:40px 48px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.06)}h1{color:#0f172a;font-size:26px;border-bottom:2px solid #2563eb;padding-bottom:10px;margin-top:0}h2{color:#1e3a8a;font-size:20px;margin-top:32px;border-left:4px solid #2563eb;padding-left:12px}h3{color:#334155;font-size:16px;margin-top:22px}h4{color:#1f2937;font-size:15px;background:#f8fafc;padding:8px 12px;border-radius:6px;margin-top:18px}p,li{font-size:14.5px;color:#374151}code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-family:Consolas,monospace;font-size:13px}pre{background:#0f172a;color:#e2e8f0;padding:14px 16px;border-radius:8px;overflow-x:auto;font-family:Consolas,monospace;font-size:13px;line-height:1.45}pre code{background:transparent;color:inherit;padding:0}hr{border:none;border-top:1px solid #e2e8f0;margin:28px 0}table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}th{background:#1e3a8a;color:#fff;text-align:left;padding:10px 12px}td{border-bottom:1px solid #e2e8f0;padding:10px 12px;vertical-align:top}tr:nth-child(even) td{background:#f8fafc}@media print{body{background:#fff;padding:0}.container{box-shadow:none;padding:0}}</style></head><body><div class="container"><h1>Changelog</h1>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>SlideScript v1.1.0 - Specifications</title><style>body{font-family:"Segoe UI",system-ui,sans-serif;background:#f4f6f9;color:#1f2937;margin:0;padding:32px 16px;line-height:1.6}.container{max-width:960px;margin:0 auto;background:#fff;padding:40px 48px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.06)}h1{color:#0f172a;font-size:26px;border-bottom:2px solid #2563eb;padding-bottom:10px;margin-top:0}h2{color:#1e3a8a;font-size:20px;margin-top:32px;border-left:4px solid #2563eb;padding-left:12px}h3{color:#334155;font-size:16px;margin-top:22px}h4{color:#1f2937;font-size:15px;background:#f8fafc;padding:8px 12px;border-radius:6px;margin-top:18px}p,li{font-size:14.5px;color:#374151}code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-family:Consolas,monospace;font-size:13px}pre{background:#0f172a;color:#e2e8f0;padding:14px 16px;border-radius:8px;overflow-x:auto;font-family:Consolas,monospace;font-size:13px;line-height:1.45}pre code{background:transparent;color:inherit;padding:0}hr{border:none;border-top:1px solid #e2e8f0;margin:28px 0}table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}th{background:#1e3a8a;color:#fff;text-align:left;padding:10px 12px}td{border-bottom:1px solid #e2e8f0;padding:10px 12px;vertical-align:top}tr:nth-child(even) td{background:#f8fafc}@media print{body{background:#fff;padding:0}.container{box-shadow:none;padding:0}}</style></head><body><div class="container"><h1>Changelog</h1>
+<h2>[1.1.0] - 2026-11-24</h2>
+<h3>Added</h3>
+<ul>
+<li>Reorganize the Installed Models &amp; Cache Manager into 4 distinct sections: <strong>Transcription Models (Whisper)</strong>, <strong>Forced Alignment Models (optional — improve timestamps)</strong>, <strong>Speaker Identification Models</strong>, and <strong>Active &amp; Recent Operations</strong>.</li>
+<li>Display real local disk usage (deduplicated from <code>blobs/</code>) for installed models, dynamically check Hugging Face Hub for newer revisions and remote download sizes, and highlight available updates with an active blue <strong>Update</strong> button and online size indicator.</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+<li>Switch the French forced-alignment model to the fast, lightweight <code>bofenghuang/asr-wav2vec2-ctc-french</code> (~380 MB) and filter out unused Flax/TensorFlow weight files (<code><em>.h5</code>, <code></em>.msgpack</code>, <code>*.ot</code>) during downloads.</li>
+<li>Make French forced alignment optional (falling back seamlessly to <code>--no_align</code> when not cached) so offline transcription and speaker identification work immediately without extra downloads.</li>
+</ul>
+<h2>[1.0.2] - 2026-11-24</h2>
+<h3>Added</h3>
+<ul>
+<li>Embed native Windows version metadata (<code>FileVersion</code>, <code>ProductVersion</code>, <code>ProductName</code>, <code>FileDescription</code>) into <code>SlideScript.exe</code> via PyInstaller <code>VSVersionInfo</code> to ease version identification and reduce antivirus/SmartScreen false positives.</li>
+</ul>
+<h3>Changed- Set <code>tiny</code> as the default Whisper model so first-time users can transcribe immediately without extra downloads.</h3>
+<ul>
+<li>Pre-bundle the lightweight <code>tiny</code> Whisper model (~75 MB) and <code>pyannote</code> speaker diarization models (~35 MB) inside <code>.\hf_cache\</code> in the <code>win64</code> portable package for instant out-of-the-box offline execution.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+<li>Monkey-patch <code>os.symlink</code> to fall back to <code>shutil.copy2</code> on Windows in both the main process and model download workers, completely eliminating <code>WinError 1314</code> privilege failures.</li>
+<li>Disable Hugging Face Hub symlinks (<code>HF_HUB_DISABLE_SYMLINKS=1</code>) to prevent <code>WinError 1314</code> privilege errors on standard Windows accounts and OneDrive folders.</li>
+</ul>
+<h2>[1.0.1] - 2026-11-23</h2>
+<h3>Fixed</h3>
+<ul>
+<li>Monkey-patch <code>os.symlink</code> to fall back to <code>shutil.copy2</code> on Windows in both the main process and model download workers, completely eliminating <code>WinError 1314</code> privilege failures.</li>
+<li>Bundle <code>runtime/</code> and <code>ffmpeg/</code> inside the portable <code>win64</code> release package so <code>SlideScript.exe</code> runs out of the box without missing environment errors.</li>
+<li>Force creation and usage of the local <code>.\hf_cache\</code> directory at startup so downloaded Whisper, WhisperX, and pyannote models persist reliably.</li>
+<li>Prevent duplicate main GUI window instantiation when opening the Installed Models &amp; Updates manager.</li>
+</ul>
 <h2>[1.0.0] - 2026-11-23</h2>
 <ul>
 <li>Initial release of SlideScript v1.0.0.</li>
